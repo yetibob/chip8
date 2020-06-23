@@ -5,10 +5,9 @@ import (
 )
 
 func HandleOp(buf []byte, pc int) int {
-
-	// Opbytes is the default amount that will be added to pc assuming we are not jumping or skipping instructions
-	// if we are skipping instructions then we will set pc accordingly
-	opbytes := 2
+	// Go ahead and advance pc by 2. This will be overridden by any opcodes that exclusive set pc
+	// prior to returning from the function
+	pc += 2
 
 	// Chip 8 instruction are technically 2 bytes long however they are read in via 1 byte increments
 	// Therefore we need to combine them into a single 16 bit integer
@@ -105,5 +104,6 @@ func HandleOp(buf []byte, pc int) int {
 	default:
 		fmt.Printf("UNKNOWN OPCODE 0x%X\n", op)
 	}
-	return pc + opbytes
+
+	return pc
 }
