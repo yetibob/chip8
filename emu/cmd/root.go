@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
-	"github.com/yetibob/chip8/emu/op"
+	"github.com/yetibob/chip8/emu/vm"
 )
 
 var (
@@ -13,20 +13,14 @@ var (
 		Use:   "regen",
 		Short: "regen runs through a chip8 program and spits out assembly ",
 		Run: func(cmd *cobra.Command, args []string) {
-			// read rom into buffer
 			romFile, err := cmd.PersistentFlags().GetString("rom")
 			panicErr(err)
 
-			rom, err := ioutil.ReadFile(romFile)
+			var emu Chip8
+			err := emu.Load(romFile)
 			panicErr(err)
-
-			pc := 0
-			for {
-				if pc >= len(rom) {
-					break
-				}
-				pc = op.HandleOp(rom[pc:pc+2], pc)
-			}
+			err = emu.Start()
+			panicErr(err)
 		},
 	}
 )

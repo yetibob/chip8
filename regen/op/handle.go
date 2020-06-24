@@ -14,11 +14,11 @@ func HandleOp(buf []byte, pc int) int {
 	var op uint16
 	op = uint16(buf[1])<<8 | uint16(buf[0])
 
-	// addr := op & 0xFFF
-	// n := op & 0xF
-	// x := op & 0x0F00
-	// y := op & 0x00F0
-	// kk := op & 0x00FF
+	addr := op & 0xFFF
+	n := op & 0xF
+	x := op & 0x0F00
+	y := op & 0x00F0
+	kk := op & 0x00FF
 
 	switch op >> 12 {
 	case 0x0:
@@ -29,19 +29,19 @@ func HandleOp(buf []byte, pc int) int {
 			fmt.Printf("RET\n")
 		}
 	case 0x1:
-		fmt.Println("JMP addr")
+		fmt.Println("JMP addr: 0x%X", addr)
 	case 0x2:
-		fmt.Println("CALL addr")
+		fmt.Println("CALL addr: 0x%X", addr)
 	case 0x3:
-		fmt.Println("SE Vx, kk")
+		fmt.Println("SE Vx, kk: 0x%X 0x%X", x, kk)
 	case 0x4:
-		fmt.Println("SNE Vx, kk")
+		fmt.Println("SNE Vx, kk: 0x%X 0x%X", x, kk)
 	case 0x5:
-		fmt.Println("SE Vx, Vy")
+		fmt.Println("SE Vx, Vy: 0x%X 0x%X", x, y)
 	case 0x6:
-		fmt.Println("LD Vx, kk")
+		fmt.Println("LD Vx, kk: 0x%X 0x%X", x, kk)
 	case 0x7:
-		fmt.Println("ADD Vx, kk")
+		fmt.Println("ADD Vx, kk: 0x%X 0x%X", x, kk)
 	case 0x8:
 		switch op & 0xF {
 		case 0x0:
