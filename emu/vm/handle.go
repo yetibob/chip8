@@ -139,8 +139,33 @@ func HandleOp(c *Chip8, buf []byte) {
 			// This one might need revisiting. Supposed to set i to location of hexadecimal font
 			c.i = uint16(c.v[x])
 		case 0x33:
-			// TODO: Figure this one out
-			fmt.Println("LD B, Vx")
+			bcd := uint32(v[x])
+
+			// double dabble algorithm for binary to bcd
+			// https://en.wikipedia.org/wiki/Double_dabble
+			// we can hardcode our limit to 8 since chip8 registers are 8 bits in length
+			for i := 0; i < 8; i++ {
+				// Check if hundreds column is greater than 4. If so, add 3 to hundreds column
+				if ((bcd & 0xF0000) >> 16) > 4 {
+					bcd = (((bcd >> 16) + 3) << 16) | (bcd & 0xFFFF)
+				}
+
+				// Check if tens column is greater than 4. If so, add 3 to tens column
+				if ((bcd & 0xF000) >> 12) > 4 {
+					bcd = (((bcd >> 12) + 3) << 12) | (bcd & 0xFFF)
+				}
+
+				// Check if ones column is greater than 4. If so, add 3 to ones column
+				if ((bcd & 0xF00) >> 8) > 4 {
+					bcd = (((bcd >> 8) + 3) << 8) | (bcd & 0xFF)
+				}
+
+				bcd = bcd << 1
+			}
+
+			c.mem[i] = (bcd & 0xF0000) >> 16
+			c.mem[i+1] = (bcd & 0xF000) >> 12
+			c.mem[i+2] = (bcd & 0xF00) >> 8
 		case 0x55:
 			var i uint16
 			for i = 0x0; i <= x; i++ {
