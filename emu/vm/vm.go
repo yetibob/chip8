@@ -238,11 +238,13 @@ func (c *Chip8) Start(scale int32) error {
 		return errors.New("No ROM loaded")
 	}
 
-	err := sdl.Init(sdl.INIT_EVERYTHING)
+	err := sdl.Init(sdl.INIT_VIDEO & sdl.INIT_AUDIO & sdl.INIT_EVENTS)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize sdl: %s\n", err)
 		os.Exit(1)
 	}
+
+	defer sdl.Quit()
 	// try to create a window
 	c.window, err = sdl.CreateWindow("Chip8", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 64*scale, 32*scale, sdl.WINDOW_SHOWN)
 	if err != nil {
@@ -266,6 +268,7 @@ func (c *Chip8) Start(scale int32) error {
 	rate := 1.0 / 60.0
 
 	running := true
+	audio_off := true
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
@@ -282,11 +285,24 @@ func (c *Chip8) Start(scale int32) error {
 		sec := dt.Seconds() / 4
 
 		// hopefully this will semi accurately drop the timers at a rate of 1/60hz
-		if c.dt > 0 && cu >= rate {
-			c.dt--
-			c.st--
+		if cu >= rate {
+			if c.dt > 0 {
+				c.dt--
+			}
+			if c.st > 0 {
+				if audio_off {
+					audio_off = false
+					// sdl.PauseAudio(audio_off)
+				}
+				c.st--
+			} else {
+				if !audio_off {
+					audio_off = true
+					// sdl.PauseAudio(audio_off)
+				}
+			}
 			cu = 0
-		} else if c.dt > 0 {
+		} else {
 			cu += sec
 		}
 		HandleOp(c, c.mem[c.pc:c.pc+2])
