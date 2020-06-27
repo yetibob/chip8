@@ -15,34 +15,46 @@ func HandleOp(c *Chip8, buf []byte) {
 	// Chip 8 instruction are technically 2 bytes long however they are read in via 1 byte increments
 	// Therefore we need to combine them into a single 16 bit integer
 	var op uint16
-	op = uint16(buf[1])<<8 | uint16(buf[0])
+	op = uint16(buf[0])<<8 | uint16(buf[1])
+	fmt.Printf("OPCODE: %#04x\n", op)
 
 	addr := op & 0xFFF
-
-	// n/nibble is used during display
-	// n := op & 0xF
-	x := op & 0x0F00
-	y := op & 0x00F0
+	n := byte(op & 0xF)
+	x := byte((op & 0x0F00) >> 8)
+	y := byte((op & 0x00F0) >> 4)
 	kk := byte(op & 0x00FF)
 
 	switch op >> 12 {
 	case 0x0:
 		switch op & 0xFF {
 		case 0xE0:
-			fmt.Printf("CLS\n")
+			for y := 0; y < len(c.display); y++ {
+				for x := 0; x < len(c.display[y]); x++ {
+					c.display[y][x] = 0x0
+				}
+			}
 		case 0xEE:
-			fmt.Printf("RET\n")
+			c.pc = c.stack[c.sp]
+			c.sp--
 		}
 	case 0x1:
 		c.pc = addr
 	case 0x2:
+		c.sp++
+		c.stack[c.sp] = c.pc
 		c.pc = addr
 	case 0x3:
-		c.pc += 2
+		if c.v[x] == kk {
+			c.pc += 2
+		}
 	case 0x4:
-		c.pc += 2
+		if c.v[x] != kk {
+			c.pc += 2
+		}
 	case 0x5:
-		c.pc += 2
+		if c.v[x] == c.v[y] {
+			c.pc += 2
+		}
 	case 0x6:
 		c.v[x] = kk
 	case 0x7:
@@ -100,34 +112,64 @@ func HandleOp(c *Chip8, buf []byte) {
 	case 0xC:
 		c.v[x] = byte(rand.Intn(256)) & kk
 	case 0xD:
-		fmt.Println("DRW Vx, Vy, n")
-		// TODO
-		/*
-		   Dxyn - DRW Vx, Vy, nibble
-		   Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
+		var erased bool
 
-		   The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0. If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen. See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites.
-		*/
+		var i byte
+		for ; i < n; i++ {
+			loc_y := c.v[y] + i
+
+			sprite := c.mem[c.i+uint16(i)]
+			var oldSprite byte
+
+			var j byte
+
+			// Mush together display into single byte for xoring
+			for ; j < 8; j++ {
+				loc_x := c.v[x] + j
+				oldSprite = (oldSprite | c.display[loc_y][loc_x]) << 1
+			}
+
+			sprite = sprite ^ oldSprite
+
+			// break sprite back up into separate display bytes
+			// we use j != 255 because we are dealing with a uint
+			// and uints wrap around back to the top when they go below zero
+			// so j >= 0 would always hold true
+			for j = 7; j != 255; j-- {
+				loc_x := c.v[x] + j
+				tmp := c.display[loc_y][loc_x]
+
+				c.display[loc_y][loc_x] = sprite & 0x1
+				sprite = sprite >> 1
+
+				if !erased && tmp == 0x1 && c.display[loc_y][loc_x] == 0x0 {
+					c.v[0xF] = 1
+					erased = true
+				}
+			}
+		}
+
+		if !erased {
+			c.v[0xF] = 0
+		}
 	case 0xE:
 		switch op & 0xFF {
-		// TODO: Need to implement keyboard
 		case 0x9E:
-			// if keys[c.v[x]] {
-			// 	c.pc += 2
-			// }
+			if c.ckeys[c.v[x]].pressed {
+				c.pc += 2
+			}
 		case 0xA1:
-			// if !keys[c.v[x]] {
-			// 	c.pc += 2
-			// }
+			if !c.ckeys[c.v[x]].pressed {
+				c.pc += 2
+			}
 		}
 	case 0xF:
 		switch op & 0xFF {
 		case 0x07:
-			fmt.Println("LD Vx, DT")
 			c.v[x] = c.dt
 		case 0x0A:
 			// TODO: Implement waitForInput()
-			// c.v[x] = waitForInput()
+			c.v[x] = c.waitForInput()
 		case 0x15:
 			c.dt = c.v[x]
 		case 0x18:
@@ -137,9 +179,9 @@ func HandleOp(c *Chip8, buf []byte) {
 		case 0x29:
 			// TODO
 			// This one might need revisiting. Supposed to set i to location of hexadecimal font
-			c.i = uint16(c.v[x])
+			c.i = uint16(c.v[x*5])
 		case 0x33:
-			bcd := uint32(v[x])
+			bcd := uint32(c.v[x])
 
 			// double dabble algorithm for binary to bcd
 			// https://en.wikipedia.org/wiki/Double_dabble
@@ -163,17 +205,17 @@ func HandleOp(c *Chip8, buf []byte) {
 				bcd = bcd << 1
 			}
 
-			c.mem[i] = (bcd & 0xF0000) >> 16
-			c.mem[i+1] = (bcd & 0xF000) >> 12
-			c.mem[i+2] = (bcd & 0xF00) >> 8
+			c.mem[c.i] = byte((bcd & 0xF0000) >> 16)
+			c.mem[c.i+1] = byte((bcd & 0xF000) >> 12)
+			c.mem[c.i+2] = byte((bcd & 0xF00) >> 8)
 		case 0x55:
 			var i uint16
-			for i = 0x0; i <= x; i++ {
+			for i = 0x0; i <= uint16(x); i++ {
 				c.mem[c.i+i] = c.v[i]
 			}
 		case 0x65:
 			var i uint16
-			for i = 0x0; i <= x; i++ {
+			for i = 0x0; i <= uint16(x); i++ {
 				c.v[i] = c.mem[c.i+i]
 			}
 		}

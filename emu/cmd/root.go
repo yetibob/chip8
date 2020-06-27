@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"io/ioutil"
-
 	"github.com/spf13/cobra"
 	"github.com/yetibob/chip8/emu/vm"
 )
@@ -16,10 +14,11 @@ var (
 			romFile, err := cmd.PersistentFlags().GetString("rom")
 			panicErr(err)
 
-			var emu Chip8
-			err := emu.Load(romFile)
+			var vm vm.Chip8
+			err = vm.Load(romFile)
 			panicErr(err)
-			err = emu.Start()
+
+			err = vm.Start(10)
 			panicErr(err)
 		},
 	}
@@ -31,7 +30,7 @@ func panicErr(err error) {
 	}
 }
 
-// Execute t
+// Execute
 func Execute() error {
 	return rootCmd.Execute()
 }
