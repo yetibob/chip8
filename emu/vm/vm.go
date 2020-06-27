@@ -3,11 +3,30 @@ package vm
 import (
 	"errors"
 	"fmt"
-	"image/color"
 	"os"
+	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
+
+var hexChars = []byte{
+	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+	0x20, 0x60, 0x20, 0x20, 0x70, // 1
+	0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+	0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+	0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+	0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+	0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+	0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+	0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+	0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+	0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+	0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+	0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+	0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+	0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+}
 
 type ckey struct {
 	key     sdl.Scancode
@@ -91,28 +110,33 @@ func (c *Chip8) waitForInput() byte {
 	return ckey
 }
 
+var i bool
+var rects [][]sdl.Rect
+
 func (c *Chip8) draw() {
-	iScale := int(c.scale)
-	c.surface.Lock()
+	if !i {
+		for y := 0; y < 32; y++ {
+			rects = append(rects, make([]sdl.Rect, 64))
+			for x := 0; x < 64; x++ {
+				y := int32(y)
+				x := int32(x)
+				rects[y][x] = sdl.Rect{c.scale * x, c.scale * y, c.scale, c.scale}
+			}
+		}
+		i = true
+	}
+
+	c.surface.FillRect(nil, 0)
 	for y, scanLine := range c.display {
 		for x, pixel := range scanLine {
-			for i := 0; i < iScale; i++ {
-				for j := 0; j < iScale; j++ {
-
-					var col color.RGBA
-					loc_x := iScale*x + j
-					loc_y := iScale*y + i
-					if pixel == 0x1 {
-						col.R = 255
-						col.G = 255
-						col.B = 255
-					}
-					c.surface.Set(loc_x, loc_y, col)
-				}
+			y := int32(y)
+			x := int32(x)
+			if pixel == 0x1 {
+				c.surface.FillRect(&rects[y][x], sdl.MapRGB(c.surface.Format, 0, 255, 255))
 			}
 		}
 	}
-	c.surface.Unlock()
+
 	c.window.UpdateSurface()
 }
 
@@ -157,6 +181,10 @@ func (c *Chip8) Reset() error {
 
 	if !c.initialized {
 		// TODO: Load fonts
+
+		for i := 0; i < len(hexChars); i++ {
+			c.mem[i] = hexChars[i]
+		}
 
 		// Init keyboard
 		c.ckeys = map[byte]ckey{
@@ -226,6 +254,15 @@ func (c *Chip8) Start(scale int32) error {
 		fmt.Fprint(os.Stderr, "Failed to get surface: %s\n", err)
 	}
 
+	// Start time for figuring out delta time
+	st := time.Now()
+
+	// Cumulative time to track when its been long enough to decrease timers
+	cu := 0.0
+
+	// rate at which to decrease timers
+	rate := 1.0 / 60.0
+
 	running := true
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
@@ -234,6 +271,20 @@ func (c *Chip8) Start(scale int32) error {
 				running = false
 				break
 			}
+		}
+		currTime := time.Now()
+		dt := currTime.Sub(st)
+		st = currTime
+
+		sec := dt.Seconds()
+
+		// hopefully this will semi accurately drop the timers at a rate of 1/60hz
+		if c.dt > 0 && cu >= rate {
+			c.dt--
+			c.st--
+			cu = 0
+		} else if c.dt > 0 {
+			cu += sec
 		}
 		HandleOp(c, c.mem[c.pc:c.pc+2])
 		c.draw()

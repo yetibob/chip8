@@ -19,18 +19,18 @@ func HandleOp(c *Chip8, buf []byte) {
 	fmt.Printf("OPCODE: %#04x\n", op)
 
 	addr := op & 0xFFF
+	x := byte((op & 0xF00) >> 8)
+	y := byte((op & 0xF0) >> 4)
+	kk := byte(op & 0xFF)
 	n := byte(op & 0xF)
-	x := byte((op & 0x0F00) >> 8)
-	y := byte((op & 0x00F0) >> 4)
-	kk := byte(op & 0x00FF)
 
 	switch op >> 12 {
 	case 0x0:
 		switch op & 0xFF {
 		case 0xE0:
-			for y := 0; y < len(c.display); y++ {
-				for x := 0; x < len(c.display[y]); x++ {
-					c.display[y][x] = 0x0
+			for _, scanLine := range c.display {
+				for col, _ := range scanLine {
+					scanLine[col] = 0x0
 				}
 			}
 		case 0xEE:
@@ -88,7 +88,7 @@ func HandleOp(c *Chip8, buf []byte) {
 			c.v[x] -= c.v[y]
 		case 0x6:
 			c.v[0xF] = c.v[x] & 0x1
-			c.v[x] /= 2
+			c.v[x] = c.v[x] << 1
 		case 0x7:
 			// TODO: This might need to be revisited. Not sure what to actually set v[x] to
 			if c.v[y] > c.v[x] {
@@ -99,7 +99,7 @@ func HandleOp(c *Chip8, buf []byte) {
 			c.v[x] = c.v[y] - c.v[x]
 		case 0xE:
 			c.v[0xF] = c.v[x] >> 7
-			c.v[x] *= 2
+			c.v[x] = c.v[x] >> 1
 		}
 	case 0x9:
 		if c.v[x] != c.v[y] {
@@ -117,15 +117,22 @@ func HandleOp(c *Chip8, buf []byte) {
 		var i byte
 		for ; i < n; i++ {
 			loc_y := c.v[y] + i
+			if loc_y > 31 {
+				loc_y -= 31
+			}
 
 			sprite := c.mem[c.i+uint16(i)]
 			var oldSprite byte
 
 			var j byte
 
-			// Mush together display into single byte for xoring
+			// Mash together display into single byte for xoring
 			for ; j < 8; j++ {
 				loc_x := c.v[x] + j
+				if loc_x > 63 {
+					loc_x -= 63
+				}
+
 				oldSprite = (oldSprite | c.display[loc_y][loc_x]) << 1
 			}
 
@@ -137,6 +144,10 @@ func HandleOp(c *Chip8, buf []byte) {
 			// so j >= 0 would always hold true
 			for j = 7; j != 255; j-- {
 				loc_x := c.v[x] + j
+				if loc_x > 63 {
+					loc_x -= 63
+				}
+
 				tmp := c.display[loc_y][loc_x]
 
 				c.display[loc_y][loc_x] = sprite & 0x1
@@ -168,7 +179,6 @@ func HandleOp(c *Chip8, buf []byte) {
 		case 0x07:
 			c.v[x] = c.dt
 		case 0x0A:
-			// TODO: Implement waitForInput()
 			c.v[x] = c.waitForInput()
 		case 0x15:
 			c.dt = c.v[x]
@@ -177,9 +187,7 @@ func HandleOp(c *Chip8, buf []byte) {
 		case 0x1E:
 			c.i += uint16(c.v[x])
 		case 0x29:
-			// TODO
-			// This one might need revisiting. Supposed to set i to location of hexadecimal font
-			c.i = uint16(c.v[x*5])
+			c.i = uint16(c.v[x] * 5)
 		case 0x33:
 			bcd := uint32(c.v[x])
 
