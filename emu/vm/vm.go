@@ -110,6 +110,8 @@ func (c *Chip8) waitForInput() byte {
 	return ckey
 }
 
+// this isn't great tbh. i wish i could just draw directly to the screen
+// and scale pixel sizes as needed. such is life
 var i bool
 var rects [][]sdl.Rect
 
@@ -276,7 +278,8 @@ func (c *Chip8) Start(scale int32) error {
 		dt := currTime.Sub(st)
 		st = currTime
 
-		sec := dt.Seconds()
+		// TODO: figure out why this hack is needed to correct timers
+		sec := dt.Seconds() / 4
 
 		// hopefully this will semi accurately drop the timers at a rate of 1/60hz
 		if c.dt > 0 && cu >= rate {

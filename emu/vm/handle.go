@@ -16,7 +16,7 @@ func HandleOp(c *Chip8, buf []byte) {
 	// Therefore we need to combine them into a single 16 bit integer
 	var op uint16
 	op = uint16(buf[0])<<8 | uint16(buf[1])
-	fmt.Printf("OPCODE: %#04x\n", op)
+	//fmt.Printf("OPCODE: %#04x\n", op)
 
 	addr := op & 0xFFF
 	x := byte((op & 0xF00) >> 8)
@@ -125,7 +125,6 @@ func HandleOp(c *Chip8, buf []byte) {
 			var oldSprite byte
 
 			var j byte
-
 			// Mash together display into single byte for xoring
 			for ; j < 8; j++ {
 				loc_x := c.v[x] + j
@@ -133,7 +132,11 @@ func HandleOp(c *Chip8, buf []byte) {
 					loc_x -= 63
 				}
 
-				oldSprite = (oldSprite | c.display[loc_y][loc_x]) << 1
+				oldSprite = oldSprite | c.display[loc_y][loc_x]
+				// do not bit shift left on final op, this causing a pixel to be lost
+				if j < 7 {
+					oldSprite = oldSprite << 1
+				}
 			}
 
 			sprite = sprite ^ oldSprite
@@ -151,6 +154,7 @@ func HandleOp(c *Chip8, buf []byte) {
 				tmp := c.display[loc_y][loc_x]
 
 				c.display[loc_y][loc_x] = sprite & 0x1
+				// it doesn't matter here that we go one to far with bit shift sprite because it won't be used after the last call anyway
 				sprite = sprite >> 1
 
 				if !erased && tmp == 0x1 && c.display[loc_y][loc_x] == 0x0 {
