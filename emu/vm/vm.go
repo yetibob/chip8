@@ -268,15 +268,16 @@ func (c *Chip8) Start(scale int32) error {
 	st := time.Now()
 
 	// Cumulative time to track when its been long enough to decrease timers
-	cu := 0.0
+	var cu time.Duration
 
 	// rate at which to decrease timers
-	rate := 1.0 / 60.0
+	var rate time.Duration = time.Second / 60
 
 	sr := beep.SampleRate(44100)
-	speaker.Init(sr, sr.N(time.Second/10))
+	speaker.Init(sr, sr.N(rate))
 
 	c.running = true
+	tone := Noise()
 	for c.running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
@@ -293,9 +294,6 @@ func (c *Chip8) Start(scale int32) error {
 		dt := currTime.Sub(st)
 		st = currTime
 
-		// TODO: figure out why this hack is needed to correct timers
-		sec := dt.Seconds() / 4
-
 		// hopefully this will semi accurately drop the timers at a rate of 1/60hz
 		if cu >= rate {
 			if c.dt > 0 {
@@ -304,12 +302,13 @@ func (c *Chip8) Start(scale int32) error {
 			if c.st > 0 {
 				// this is a bit of an audio hack
 				// just playing the sound as long as needed then dropping st to 0
-				speaker.Play(beep.Seq(beep.Take(sr.N(time.Second/time.Duration(c.st*2)), Noise()), beep.Callback(func() {})))
+				var dur = time.Second * time.Duration(c.st) / 60
+				speaker.Play(beep.Take(sr.N(dur), tone))
 				c.st = 0
 			}
 			cu = 0
 		} else {
-			cu += sec
+			cu += dt
 		}
 		HandleOp(c, c.mem[c.pc:c.pc+2])
 		c.draw()
