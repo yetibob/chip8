@@ -103,22 +103,22 @@ type Chip8 struct {
 	surface *sdl.Surface
 
 	// scale is used to determine the size of the display and pixels
-	scale int32
+	scale   int32
+	running bool
 }
 
 func (c *Chip8) waitForInput() byte {
-	var k byte
-	for event := sdl.WaitEvent(); event != nil; event = sdl.WaitEvent() {
+	for event := sdl.WaitEvent(); ; event = sdl.WaitEvent() {
 		switch e := event.(type) {
+		case *sdl.QuitEvent:
+			c.running = false
+			return 0xFF
 		case *sdl.KeyboardEvent:
 			if key, ok := keymap[e.Keysym.Scancode]; ok && e.Type == sdl.KEYDOWN {
-				c.keys[key] = true
-				k = key
-				break
+				return key
 			}
 		}
 	}
-	return k
 }
 
 // this isn't great tbh. i wish i could just draw directly to the screen
@@ -246,7 +246,7 @@ func (c *Chip8) Start(scale int32) error {
 		return errors.New("No ROM loaded")
 	}
 
-	err := sdl.Init(sdl.INIT_VIDEO & sdl.INIT_AUDIO & sdl.INIT_EVENTS)
+	err := sdl.Init(sdl.INIT_VIDEO & sdl.INIT_EVENTS)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize sdl: %s\n", err)
 		os.Exit(1)
@@ -273,16 +273,15 @@ func (c *Chip8) Start(scale int32) error {
 	// rate at which to decrease timers
 	rate := 1.0 / 60.0
 
-	running := true
-
 	sr := beep.SampleRate(44100)
 	speaker.Init(sr, sr.N(time.Second/10))
 
-	for running {
+	c.running = true
+	for c.running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
 			case *sdl.QuitEvent:
-				running = false
+				c.running = false
 			case *sdl.KeyboardEvent:
 				if key, ok := keymap[e.Keysym.Scancode]; ok && e.Type == sdl.KEYDOWN {
 					c.keys[key] = true
@@ -303,6 +302,8 @@ func (c *Chip8) Start(scale int32) error {
 				c.dt--
 			}
 			if c.st > 0 {
+				// this is a bit of an audio hack
+				// just playing the sound as long as needed then dropping st to 0
 				speaker.Play(beep.Seq(beep.Take(sr.N(time.Second/time.Duration(c.st*2)), Noise()), beep.Callback(func() {})))
 				c.st = 0
 			}

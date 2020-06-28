@@ -16,7 +16,6 @@ func HandleOp(c *Chip8, buf []byte) {
 	// Therefore we need to combine them into a single 16 bit integer
 	var op uint16
 	op = uint16(buf[0])<<8 | uint16(buf[1])
-	// fmt.Printf("OPCODE: %#04x\n", op)
 
 	addr := op & 0xFFF
 	x := byte((op & 0xF00) >> 8)
