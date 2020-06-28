@@ -28,14 +28,23 @@ var hexChars = []byte{
 	0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 }
 
-type ckey struct {
-	key     sdl.Scancode
-	pressed bool
-}
-
-type pkey struct {
-	key     byte
-	pressed bool
+var keymap = map[sdl.Scancode]byte{
+	sdl.SCANCODE_1: 0x1,
+	sdl.SCANCODE_2: 0x2,
+	sdl.SCANCODE_3: 0x3,
+	sdl.SCANCODE_4: 0xC,
+	sdl.SCANCODE_Q: 0x4,
+	sdl.SCANCODE_W: 0x5,
+	sdl.SCANCODE_E: 0x6,
+	sdl.SCANCODE_R: 0xD,
+	sdl.SCANCODE_A: 0x7,
+	sdl.SCANCODE_S: 0x8,
+	sdl.SCANCODE_D: 0x9,
+	sdl.SCANCODE_F: 0xE,
+	sdl.SCANCODE_Z: 0xA,
+	sdl.SCANCODE_X: 0x0,
+	sdl.SCANCODE_C: 0xB,
+	sdl.SCANCODE_V: 0xF,
 }
 
 // Chip8 represents the interpreted that will load and run Chip8 programs
@@ -83,11 +92,8 @@ type Chip8 struct {
 	// Since all drawing is done via sprites, and sprites are 8x15, it might make more sense to treat pixels as chunks of 8 wide (so 4 chunks makes would be the entire display width
 	display [32][64]byte
 
-	// ckeys is a mapping of chip8 keys to physical keys
-	ckeys map[byte]ckey
-
-	// pkeys is a mapping of physical keys to chip8 keys
-	pkeys map[sdl.Scancode]pkey
+	// keyboard
+	keys map[byte]bool
 
 	// window and surface represent the sdl components for rendering
 	window  *sdl.Window
@@ -98,16 +104,18 @@ type Chip8 struct {
 }
 
 func (c *Chip8) waitForInput() byte {
-	var ckey byte
+	var k byte
 	for event := sdl.WaitEvent(); event != nil; event = sdl.WaitEvent() {
 		switch e := event.(type) {
 		case *sdl.KeyboardEvent:
-			if key, ok := c.pkeys[e.Keysym.Scancode]; ok && e.Type == sdl.KEYDOWN {
-				ckey = key.key
+			if key, ok := keymap[e.Keysym.Scancode]; ok && e.Type == sdl.KEYDOWN {
+				c.keys[key] = true
+				k = key
+				break
 			}
 		}
 	}
-	return ckey
+	return k
 }
 
 // this isn't great tbh. i wish i could just draw directly to the screen
@@ -189,41 +197,23 @@ func (c *Chip8) Reset() error {
 		}
 
 		// Init keyboard
-		c.ckeys = map[byte]ckey{
-			0x1: {sdl.SCANCODE_1, false},
-			0x2: {sdl.SCANCODE_2, false},
-			0x3: {sdl.SCANCODE_3, false},
-			0xC: {sdl.SCANCODE_4, false},
-			0x4: {sdl.SCANCODE_Q, false},
-			0x5: {sdl.SCANCODE_W, false},
-			0x6: {sdl.SCANCODE_E, false},
-			0xD: {sdl.SCANCODE_R, false},
-			0x7: {sdl.SCANCODE_A, false},
-			0x8: {sdl.SCANCODE_S, false},
-			0x9: {sdl.SCANCODE_D, false},
-			0xE: {sdl.SCANCODE_F, false},
-			0xA: {sdl.SCANCODE_Z, false},
-			0x0: {sdl.SCANCODE_X, false},
-			0xB: {sdl.SCANCODE_C, false},
-			0xF: {sdl.SCANCODE_V, false},
-		}
-		c.pkeys = map[sdl.Scancode]pkey{
-			sdl.SCANCODE_1: {0x1, false},
-			sdl.SCANCODE_2: {0x2, false},
-			sdl.SCANCODE_3: {0x3, false},
-			sdl.SCANCODE_4: {0xC, false},
-			sdl.SCANCODE_Q: {0x4, false},
-			sdl.SCANCODE_W: {0x5, false},
-			sdl.SCANCODE_E: {0x6, false},
-			sdl.SCANCODE_R: {0xD, false},
-			sdl.SCANCODE_A: {0x7, false},
-			sdl.SCANCODE_S: {0x8, false},
-			sdl.SCANCODE_D: {0x9, false},
-			sdl.SCANCODE_F: {0xE, false},
-			sdl.SCANCODE_Z: {0xA, false},
-			sdl.SCANCODE_X: {0x0, false},
-			sdl.SCANCODE_C: {0xB, false},
-			sdl.SCANCODE_V: {0xF, false},
+		c.keys = map[byte]bool{
+			0x1: false,
+			0x2: false,
+			0x3: false,
+			0xC: false,
+			0x4: false,
+			0x5: false,
+			0x6: false,
+			0xD: false,
+			0x7: false,
+			0x8: false,
+			0x9: false,
+			0xE: false,
+			0xA: false,
+			0x0: false,
+			0xB: false,
+			0xF: false,
 		}
 		c.initialized = true
 	}
@@ -269,20 +259,25 @@ func (c *Chip8) Start(scale int32) error {
 
 	running := true
 	audio_off := true
+
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
+			switch e := event.(type) {
 			case *sdl.QuitEvent:
 				running = false
-				break
+			case *sdl.KeyboardEvent:
+				if key, ok := keymap[e.Keysym.Scancode]; ok && e.Type == sdl.KEYDOWN {
+					c.keys[key] = true
+				}
 			}
 		}
+
 		currTime := time.Now()
 		dt := currTime.Sub(st)
 		st = currTime
 
 		// TODO: figure out why this hack is needed to correct timers
-		sec := dt.Seconds() / 4
+		sec := dt.Seconds() / 2
 
 		// hopefully this will semi accurately drop the timers at a rate of 1/60hz
 		if cu >= rate {

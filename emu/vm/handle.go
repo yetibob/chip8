@@ -16,7 +16,7 @@ func HandleOp(c *Chip8, buf []byte) {
 	// Therefore we need to combine them into a single 16 bit integer
 	var op uint16
 	op = uint16(buf[0])<<8 | uint16(buf[1])
-	//fmt.Printf("OPCODE: %#04x\n", op)
+	// fmt.Printf("OPCODE: %#04x\n", op)
 
 	addr := op & 0xFFF
 	x := byte((op & 0xF00) >> 8)
@@ -28,9 +28,9 @@ func HandleOp(c *Chip8, buf []byte) {
 	case 0x0:
 		switch op & 0xFF {
 		case 0xE0:
-			for _, scanLine := range c.display {
-				for col, _ := range scanLine {
-					scanLine[col] = 0x0
+			for row, _ := range c.display {
+				for col, _ := range c.display[row] {
+					c.display[row][col] = 0x0
 				}
 			}
 		case 0xEE:
@@ -73,13 +73,11 @@ func HandleOp(c *Chip8, buf []byte) {
 			tmp := uint16(c.v[x]) + uint16(c.v[y])
 			if tmp > 255 {
 				c.v[0xF] = 1
-				c.v[x] = 255
 			} else {
 				c.v[0xF] = 0
-				c.v[x] = byte(tmp)
 			}
+			c.v[x] = byte(tmp)
 		case 0x5:
-			// TODO: This might need to be revisited. Not sure what to actually set v[x] to
 			if c.v[x] > c.v[y] {
 				c.v[0xF] = 1
 			} else {
@@ -88,9 +86,8 @@ func HandleOp(c *Chip8, buf []byte) {
 			c.v[x] -= c.v[y]
 		case 0x6:
 			c.v[0xF] = c.v[x] & 0x1
-			c.v[x] = c.v[x] << 1
+			c.v[x] = c.v[x] >> 1
 		case 0x7:
-			// TODO: This might need to be revisited. Not sure what to actually set v[x] to
 			if c.v[y] > c.v[x] {
 				c.v[0xF] = 1
 			} else {
@@ -99,7 +96,7 @@ func HandleOp(c *Chip8, buf []byte) {
 			c.v[x] = c.v[y] - c.v[x]
 		case 0xE:
 			c.v[0xF] = c.v[x] >> 7
-			c.v[x] = c.v[x] >> 1
+			c.v[x] = c.v[x] << 1
 		}
 	case 0x9:
 		if c.v[x] != c.v[y] {
@@ -170,12 +167,15 @@ func HandleOp(c *Chip8, buf []byte) {
 	case 0xE:
 		switch op & 0xFF {
 		case 0x9E:
-			if c.ckeys[c.v[x]].pressed {
+			if c.keys[c.v[x]] {
 				c.pc += 2
+				c.keys[c.v[x]] = false
 			}
 		case 0xA1:
-			if !c.ckeys[c.v[x]].pressed {
+			if !c.keys[c.v[x]] {
 				c.pc += 2
+			} else {
+				c.keys[c.v[x]] = false
 			}
 		}
 	case 0xF:
