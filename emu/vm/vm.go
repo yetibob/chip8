@@ -303,7 +303,7 @@ func (c *Chip8) Start(scale int32) error {
 				c.dt--
 			}
 			if c.st > 0 {
-				speaker.Play(beep.Seq(beep.Take(sr.N(time.Second/time.Duration(c.st)), Noise()), beep.Callback(func() {})))
+				speaker.Play(beep.Seq(beep.Take(sr.N(time.Second/time.Duration(c.st*2)), Noise()), beep.Callback(func() {})))
 				c.st = 0
 			}
 			cu = 0
