@@ -3,9 +3,12 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -221,6 +224,21 @@ func (c *Chip8) Reset() error {
 	return nil
 }
 
+func Noise() beep.Streamer {
+	sampleRate := beep.SampleRate(44100)
+	freq := 800.0
+	var playbackPos int
+	return beep.StreamerFunc(func(samples [][2]float64) (n int, ok bool) {
+		for i := range samples {
+			amp := math.Sin(2.0 * math.Pi * freq / float64(sampleRate.N(time.Second)) * float64(playbackPos))
+			samples[i][0] = amp
+			samples[i][1] = amp
+			playbackPos++
+		}
+		return len(samples), true
+	})
+}
+
 // Start interpreter execution using loaded data
 func (c *Chip8) Start(scale int32) error {
 	c.scale = scale
@@ -241,14 +259,12 @@ func (c *Chip8) Start(scale int32) error {
 		fmt.Fprint(os.Stderr, "Failed to create window: %s\n", err)
 		os.Exit(2)
 	}
-	defer c.window.Destroy()
 
 	c.surface, err = c.window.GetSurface()
 	if err != nil {
 		fmt.Fprint(os.Stderr, "Failed to get surface: %s\n", err)
 	}
 
-	// Start time for figuring out delta time
 	st := time.Now()
 
 	// Cumulative time to track when its been long enough to decrease timers
@@ -258,7 +274,9 @@ func (c *Chip8) Start(scale int32) error {
 	rate := 1.0 / 60.0
 
 	running := true
-	audio_off := true
+
+	sr := beep.SampleRate(44100)
+	speaker.Init(sr, sr.N(time.Second/10))
 
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
@@ -277,7 +295,7 @@ func (c *Chip8) Start(scale int32) error {
 		st = currTime
 
 		// TODO: figure out why this hack is needed to correct timers
-		sec := dt.Seconds() / 2
+		sec := dt.Seconds() / 4
 
 		// hopefully this will semi accurately drop the timers at a rate of 1/60hz
 		if cu >= rate {
@@ -285,16 +303,8 @@ func (c *Chip8) Start(scale int32) error {
 				c.dt--
 			}
 			if c.st > 0 {
-				if audio_off {
-					audio_off = false
-					// sdl.PauseAudio(audio_off)
-				}
-				c.st--
-			} else {
-				if !audio_off {
-					audio_off = true
-					// sdl.PauseAudio(audio_off)
-				}
+				speaker.Play(beep.Seq(beep.Take(sr.N(time.Second/time.Duration(c.st)), Noise()), beep.Callback(func() {})))
+				c.st = 0
 			}
 			cu = 0
 		} else {
