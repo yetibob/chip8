@@ -165,7 +165,7 @@ func (c *Chip8) Load(romFile string) error {
 		return err
 	}
 
-	// f.Read requires a byte slice, however since we know the exact chip8 hardware limitations
+	// f.Read requires a byte slice, however since we know the exact hardware specs
 	// we are using an array directly
 	// pass in c.mem[:] to force pass as slice
 	_, err = f.Read(c.mem[0x200:])
@@ -310,7 +310,7 @@ func (c *Chip8) Start(scale int32) error {
 		} else {
 			cu += dt
 		}
-		HandleOp(c, c.mem[c.pc:c.pc+2])
+		handleOp(c, c.mem[c.pc:c.pc+2])
 		c.draw()
 	}
 	return nil

@@ -5,9 +5,7 @@ import (
 	"math/rand"
 )
 
-// HandleOp receives a chip8 instance and 2 byte long slice and performs any required action
-// This might get moved to a chip8 method or something...idk yo
-func HandleOp(c *Chip8, buf []byte) {
+func handleOp(c *Chip8, buf []byte) {
 	// Go ahead and advance pc by 2. This will be overridden by any opcodes that exclusive set pc
 	// prior to returning from the function
 	c.pc += 2

@@ -8,8 +8,8 @@ import (
 var (
 	// Used for flags.
 	rootCmd = &cobra.Command{
-		Use:   "regen",
-		Short: "regen runs through a chip8 program and spits out assembly ",
+		Use:   "chip8",
+		Short: "runs chip8 programs by emulating chip8 runtime",
 		Run: func(cmd *cobra.Command, args []string) {
 			romFile, err := cmd.PersistentFlags().GetString("rom")
 			panicErr(err)
