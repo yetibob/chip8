@@ -85,7 +85,7 @@ type Chip8 struct {
 	st byte
 
 	// Display is a monochrome display with a size of 64x32
-	// Since it is a monochrome display; a pixel can either be on or 1
+	// Since it is a monochrome display; a pixel can either be on or off
 	// We have no way of working directly with single bits; so we have 2 options for storing pixel info
 	// Storing every pixel as a byte which makes the required memory 64x32 bytes
 	// OR
@@ -179,7 +179,7 @@ func (c *Chip8) Load(romFile string) error {
 // Reset will preps chip for loading another rom
 func (c *Chip8) Reset() error {
 	// no need to clear memory, registers, or stack because a chip8 program should set anything up that it needs prior to reading from these
-	// we just need to recent all of our data pointers and the sound timers
+	// we just need to reset all of our data pointers and the sound timers
 	c.romFile = ""
 	c.pc = 0x200
 	c.sp = 0
