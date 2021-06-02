@@ -1,33 +1,29 @@
-FILENAME = chip8
-OUTDIR = bin
+IDIR =../include
+CC=g++
+CFLAGS=-I$(IDIR)
 
-CC = g++
+ODIR=obj
+LDIR =../lib
 
-# AVR-GCC Compilation Options
-CFLAGS = -g -Os -c -o
+LIBS=-lm
 
-# AVR-GCC Linking flags
-LFLAGS = -Os -o
+_DEPS = chip8.hpp util.hpp
+DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-SRC = $(FILENAME).cpp
+_OBJ = main.o chip8.o
+OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-# Source files to compile
-SRC +=
+chip8: $(OBJ)
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
-INCLUDE = -I.
+$(ODIR)/%.o: %.cpp $(DEPS)
+	$(CC) -c -o $@ $< $(CFLAGS)
 
-# User defined and 3rd party libs to include
-INCLUDE +=
-
-$(FILENAME): $(FILENAME).o
-	$(CC) $(INCLUDE) $(LFLAGS) $(OUTDIR)/$@ $(OUTDIR)/$^
-
-$(FILENAME).o: $(SRC)
-	$(CC) $^ $(INCLUDE) $(CFLAGS) $(OUTDIR)/$@
-
+.PHONY: clean
 
 clean:
-	rm -rf bin
+	rm -f $(ODIR)/*.o *~ core $(INCDIR)/*~ 
+	rm -f $(BDIR)/* *~ core $(INCDIR)/*~ 
 
-bin:
-	mkdir -p bin
+run:
+	./chip8
