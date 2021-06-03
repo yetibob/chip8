@@ -33,5 +33,6 @@ private:
     bool running;
 
     void init();
-	void tick();
+    void tick();
+    void handleOp();
 };
