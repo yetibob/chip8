@@ -40,9 +40,32 @@ void Chip8::init() {
     for (int i = 0; i < 512; i++) {
         memory[i] = hexChars[i];
     }
+
+    keys[0x1] = false;
+    keys[0x2] = false;
+    keys[0x3] = false;
+    keys[0xC] = false;
+    keys[0x4] = false;
+    keys[0x5] = false;
+    keys[0x6] = false;
+    keys[0xD] = false;
+    keys[0x7] = false;
+    keys[0x8] = false;
+    keys[0x9] = false;
+    keys[0xE] = false;
+    keys[0xA] = false;
+    keys[0x0] = false;
+    keys[0xB] = false;
+    keys[0xF] = false;
 }
 
 void Chip8::reset() {
+    // why do i get an error without this cast?
+    pc = static_cast<byte>(0x200);
+    sp = 0;
+    dt = 0;
+    st = 0;
+
     // do we need this mem reset???
     for (int i = 512; i < memory.size(); i++) {
         memory[i] = 0;
@@ -53,6 +76,12 @@ void Chip8::reset() {
         for (auto& col : row) {
             col = 0;
         } 
+    }
+
+    // Init keyboard
+    // Do we like this more? I think so...just need to setup the keys in our constructor
+    for (auto& [key, value] : keys) {
+        value = false;
     }
 }
 
@@ -71,4 +100,272 @@ void Chip8::run() {
 	}
 }
 
-void Chip8::tick() {}
+void Chip8::tick() {
+	// Go ahead and advance pc by 2. This will be overridden by any opcodes that exclusive set pc
+	// prior to returning from the function
+	pc += 2;
+
+	// Chip 8 instruction are technically 2 bytes long however they are read in via 1 byte increments
+	// Therefore we need to combine them into a single 16 bit integer
+	uint16_t op;
+    op = static_cast<uint16_t>(memory[pc]) << 8 | static_cast<uint16_t>(memory[pc+1]);
+
+	uint16_t addr = op & 0xFFF;
+	byte x        = (op & 0xF00) >> 8;
+	byte y        = (op & 0xF0) >> 4;
+	byte kk       = (op & 0xFF);
+	byte n        = (op & 0xF);
+
+	switch (op >> 12) {
+	case 0x0:
+		switch (op & 0xFF) {
+		case 0xE0:
+			for (auto& row : display) {
+				for ( auto& col :  row) {
+					col = 0x0;
+					// c.display[row][col] = 0x0
+				}
+			}
+            break;
+		case 0xEE:
+			// pc = stack[sp--];
+			pc = stack[sp];
+			sp--;
+            break;
+		}
+        break;
+	case 0x1:
+		pc = addr;
+        break;
+	case 0x2:
+		sp++;
+		stack[sp] = pc;
+		pc = addr;
+        break;
+	case 0x3:
+		if (v[x] == kk) {
+			pc += 2;
+		}
+        break;
+	case 0x4:
+		if (v[x] != kk) {
+			pc += 2;
+		}
+        break;
+	case 0x5:
+		if (v[x] == v[y]) {
+			pc += 2;
+		}
+        break;
+	case 0x6:
+		v[x] = kk;
+        break;
+	case 0x7:
+		v[x] += kk;
+        break;
+	case 0x8:
+		switch (op & 0xF) {
+		case 0x0:
+			v[x] = v[y];
+            break;
+		case 0x1:
+			v[x] |= v[y];
+            break;
+		case 0x2:
+			v[x] &= v[y];
+            break;
+		case 0x3:
+			v[x] ^= v[y];
+            break;
+		case 0x4: {
+			uint16_t tmp = static_cast<uint16_t>(v[x]) + static_cast<uint16_t>(v[y]);
+			if (tmp > 255) {
+				v[0xF] = 1;
+			} else {
+				v[0xF] = 0;
+			}
+			// v[x] = byte(tmp)
+			v[x] = tmp;
+            break;
+                  }
+		case 0x5:
+			if (v[x] > v[y]) {
+				v[0xF] = 1;
+			} else {
+				v[0xF] = 0;
+			}
+			v[x] -= v[y];
+            break;
+		case 0x6:
+			v[0xF] = v[x] & 0x1;
+			v[x] = v[x] >> 1;
+            break;
+		case 0x7:
+			if (v[y] > v[x]) {
+				v[0xF] = 1;
+			} else {
+				v[0xF] = 0;
+			}
+			v[x] = v[y] - v[x];
+            break;
+		case 0xE:
+			v[0xF] = v[x] >> 7;
+			v[x] = v[x] << 1;
+            break;
+		}
+	case 0x9:
+		if (v[x] != v[y]) {
+			pc += 2;
+		}
+        break;
+	case 0xA:
+		i = addr;
+        break;
+	case 0xB:
+		pc = addr + static_cast<uint16_t>(v[0]);
+        break;
+	case 0xC:
+        // TODO: Random num gen
+		// v[x] = rand.Intn(256) & kk;
+        // break;
+	case 0xD:
+		bool erased;
+
+		byte x;
+		for (; x < n; x++) {
+			byte loc_y = v[y] + x;
+			if (loc_y > 31) {
+				loc_y -= 31;
+			}
+
+			byte sprite = memory[i+static_cast<uint16_t>(x)];
+			byte oldSprite;
+
+			byte j;
+			// Mash together display into single byte for xoring
+			for (; j < 8; j++) {
+				byte loc_x = v[x] + j;
+				if (loc_x > 63) {
+					loc_x -= 63;
+				}
+
+				oldSprite = oldSprite | display[loc_y][loc_x];
+				// do not bit shift left on final op, this causing a pixel to be lost
+				if (j < 7) {
+					oldSprite = oldSprite << 1;
+				}
+			}
+
+			sprite = sprite ^ oldSprite;
+
+			// break sprite back up into separate display bytes
+			// we use j != 255 because we are dealing with a uint
+			// and uints wrap around back to the top when they go below zero
+			// so j >= 0 would always hold true
+			for (j = 7; j != 255; j--) {
+				byte loc_x = v[x] + j;
+				if (loc_x > 63) {
+					loc_x -= 63;
+				}
+
+				byte tmp = display[loc_y][loc_x];
+
+				display[loc_y][loc_x] = sprite & 0x1;
+				// it doesn't matter here that we go one to far with bit shift sprite because it won't be used after the last call anyway
+				sprite = sprite >> 1;
+
+				if (!erased && tmp == 0x1 && display[loc_y][loc_x] == 0x0) {
+					v[0xF] = 1;
+					erased = true;
+				}
+			}
+		}
+
+		if (!erased) {
+			v[0xF] = 0;
+		}
+        break;
+	case 0xE:
+		switch (op & 0xFF) {
+		case 0x9E:
+			if (keys[v[x]]) {
+				pc += 2;
+				keys[v[x]] = false;
+			}
+            break;
+		case 0xA1:
+			if (!keys[v[x]]) {
+				pc += 2;
+			} else {
+				keys[v[x]] = false;
+			}
+            break;
+		}
+        break;
+	case 0xF:
+		switch (op & 0xFF) {
+		case 0x07:
+			v[x] = dt;
+            break;
+		case 0x0A:
+            // TODO:waitForInput
+			//v[x] = c.waitForInput();
+            //break;
+		case 0x15:
+			dt = v[x];
+            break;
+		case 0x18:
+			st = v[x];
+            break;
+		case 0x1E:
+			i += static_cast<uint16_t>(v[x]);
+            break;
+		case 0x29:
+			i = static_cast<uint16_t>(v[x] * 5);
+            break;
+		case 0x33: {
+			uint32_t bcd = v[x];
+
+			// double dabble algorithm for binary to bcd
+			// https://en.wikipedia.org/wiki/Double_dabble
+			// we can hardcode our limit to 8 since chip8 registers are 8 bits in length
+			for (short i = 0; i < 8; i++) {
+				// Check if hundreds column is greater than 4. If so, add 3 to hundreds column
+				if (((bcd & 0xF0000) >> 16) > 4) {
+					bcd = (((bcd >> 16) + 3) << 16) | (bcd & 0xFFFF);
+				}
+
+				// Check if tens column is greater than 4. If so, add 3 to tens column
+				if (((bcd & 0xF000) >> 12) > 4) {
+					bcd = (((bcd >> 12) + 3) << 12) | (bcd & 0xFFF);
+				}
+
+				// Check if ones column is greater than 4. If so, add 3 to ones column
+				if (((bcd & 0xF00) >> 8) > 4) {
+					bcd = (((bcd >> 8) + 3) << 8) | (bcd & 0xFF);
+				}
+
+				bcd = bcd << 1;
+			}
+
+			memory[i]   = (bcd & 0xF0000) >> 16;
+			memory[i+1] = (bcd & 0xF000) >> 12;
+			memory[i+2] = (bcd & 0xF00) >> 8;
+            break;
+                   }
+		case 0x55:
+            // TODO: Make sure this stuff is right
+			for (uint16_t j = 0x0; j <= static_cast<uint16_t>(x); j++) {
+				memory[i+j] = v[j];
+			}
+            break;
+		case 0x65:
+			for (uint16_t j = 0x0; j <= static_cast<uint16_t>(x); j++) {
+				v[j] = memory[i+j];
+			}
+            break;
+		}
+	default:
+        std::cout << "UNKNOWN OPCODE 0x%04x"<< op << std::endl;
+	}
+}

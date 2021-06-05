@@ -1,4 +1,5 @@
 #include <array>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,8 @@ private:
 
     uint32_t scale; // pixel and display scaling
     bool running;
+
+	std::map<byte, bool> keys;
 
     void init();
     void tick();
