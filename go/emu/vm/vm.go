@@ -50,7 +50,7 @@ var keymap = map[sdl.Scancode]byte{
 	sdl.SCANCODE_V: 0xF,
 }
 
-// Chip8 represents the interpreted that will load and run Chip8 programs
+// Chip8 represents the interpreter that will load and run Chip8 programs
 type Chip8 struct {
 	initialized bool
 	romFile     string
