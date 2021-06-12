@@ -32,7 +32,7 @@ private:
     uint16_t pc; // program counter
     uint16_t i;  // 16 bit i register. Normally used to store mem addresses
 
-    uint32_t scale;   // pixel and display scaling
+    int      scale;   // pixel and display scaling
     bool     running;
 
     SDL_Window *window;
@@ -41,6 +41,7 @@ private:
     void init();
     void tick();
     void handleOp();
-	byte waitForInput();
 	void draw();
+
+	byte waitForInput();
 };

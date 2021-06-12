@@ -143,10 +143,14 @@ void Chip8::run(int s) {
 }
 
 void Chip8::tick() {
-	pc += 2;
-
 	uint16_t op;
     op = static_cast<uint16_t>(memory[pc]) << 8 | static_cast<uint16_t>(memory[pc+1]);
+
+	// std::cout << "State:\n";
+	// std::cout << "\tOP: 0x" << std::hex << op << "\n";
+	// std::cout << "\tPC: 0x" << std::hex << pc << std::dec << std::endl;
+
+	pc += 2;
 
 	uint16_t addr = op & 0xFFF;
 	byte x        = (op & 0xF00) >> 8;
@@ -159,16 +163,14 @@ void Chip8::tick() {
 		switch (op & 0xFF) {
 		case 0xE0:
 			for (auto& row : display) {
-				for ( auto& col :  row) {
-					col = 0x0;
+				for ( auto& pix :  row) {
+					pix = 0x0;
 					// c.display[row][col] = 0x0
 				}
 			}
             break;
 		case 0xEE:
-			// pc = stack[sp--];
-			pc = stack[sp];
-			sp--;
+			pc = stack[sp--];
             break;
 		}
         break;
@@ -262,9 +264,12 @@ void Chip8::tick() {
 	case 0xB:
 		pc = addr + static_cast<uint16_t>(v[0]);
         break;
-	case 0xC:
-        v[x] = dist(gen);
+	case 0xC: {
+		int rand = dist(gen);
+		std::cout << "Rand: " << rand << std::endl;
+        v[x] = rand;
         break;
+			  }
 	case 0xD:
 		bool erased;
 
@@ -388,21 +393,23 @@ void Chip8::tick() {
 			memory[i+1] = (bcd & 0xF000) >> 12;
 			memory[i+2] = (bcd & 0xF00) >> 8;
             break;
-                   }
+        }
 		case 0x55:
             // TODO: Make sure this stuff is right
-			for (uint16_t j = 0x0; j <= static_cast<uint16_t>(x); j++) {
+			for (uint16_t j = 0x0; j <= x; j++) {
 				memory[i+j] = v[j];
 			}
             break;
 		case 0x65:
-			for (uint16_t j = 0x0; j <= static_cast<uint16_t>(x); j++) {
+			for (uint16_t j = 0x0; j <= x; j++) {
 				v[j] = memory[i+j];
 			}
             break;
 		}
+		break;
 	default:
-        std::cout << "UNKNOWN OPCODE 0x"<< std::hex << op << std::endl;
+        std::cout << "UNKNOWN OPCODE 0x"<< std::hex << op << std::dec << std::endl;
+		running = false;
 	}
 }
 
@@ -431,17 +438,18 @@ std::array<std::array<SDL_Rect, 64>, 32> rects;
 
 void Chip8::draw() {
 	if (!i) {
-        for (uint32_t y = 0; y < 32; y++) {
-            for (uint32_t x = 0; x < 64; x++) {
-                rects[y][x] = SDL_Rect{static_cast<int>(scale * x), static_cast<int>(scale * y), static_cast<int>(scale), static_cast<int>(scale)};
+        for (int y = 0; y < 32; y++) {
+            for (int x = 0; x < 64; x++) {
+                rects[y][x] = SDL_Rect{scale * x, scale * y, scale, scale};
             }
         }
         i = true;
     }
 
     SDL_FillRect(surface, NULL, 0);
-    for (uint32_t y = 0; y < display.size(); y++) {
-        for (uint32_t x; x < display[y].size(); x++) {
+
+    for (int y = 0; y < 32; y++) {
+        for (int x = 0; x < 64; x++) {
             if (display[y][x] == 0x1) {
                 SDL_FillRect(surface, &rects[y][x], SDL_MapRGB(surface->format, 0, 255, 255));
             }
