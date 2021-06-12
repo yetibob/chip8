@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+
 #include "SDL.h"
 
 #include "chip8.hpp"
@@ -57,7 +58,6 @@ Chip8::Chip8(std::string rom): rom(rom), memory{}  {
 
     init();
 	load();
-    printArr(memory);
 }
 
 void Chip8::init() {
@@ -81,29 +81,22 @@ void Chip8::init() {
     keys[0x0] = false;
     keys[0xB] = false;
     keys[0xF] = false;
+
+	reset();
 }
 
 void Chip8::reset() {
-    // why do i get a compilation error without this cast?
-    pc = static_cast<byte>(0x200);
+    pc = 0x200;
     sp = 0;
     dt = 0;
     st = 0;
 
-    // do we need this mem reset???
-    for (int i = 512; i < memory.size(); i++) {
-        memory[i] = 0;
-    }
-
-    // wipe display
     for (auto& row : display) {
         for (auto& col : row) {
             col = 0;
         } 
     }
 
-    // Init keyboard
-    // Do we like this more? I think so...just need to setup the keys in our constructor
     for (auto& [key, value] : keys) {
         value = false;
     }
@@ -150,12 +143,8 @@ void Chip8::run(int s) {
 }
 
 void Chip8::tick() {
-	// Go ahead and advance pc by 2. This will be overridden by any opcodes that exclusive set pc
-	// prior to returning from the function
 	pc += 2;
 
-	// Chip 8 instruction are technically 2 bytes long however they are read in via 1 byte increments
-	// Therefore we need to combine them into a single 16 bit integer
 	uint16_t op;
     op = static_cast<uint16_t>(memory[pc]) << 8 | static_cast<uint16_t>(memory[pc+1]);
 
@@ -413,7 +402,7 @@ void Chip8::tick() {
             break;
 		}
 	default:
-        std::cout << "UNKNOWN OPCODE 0x%04x"<< op << std::endl;
+        std::cout << "UNKNOWN OPCODE 0x"<< std::hex << op << std::endl;
 	}
 }
 
@@ -422,7 +411,7 @@ byte Chip8::waitForInput() {
 
     while (SDL_WaitEvent(&event))  {
         switch (event.type) {
-            case SDL_QUIT: // Do I Need this?
+            case SDL_QUIT:
                 running = false;
                 return 0xFF;
             case SDL_KEYDOWN:
@@ -432,6 +421,7 @@ byte Chip8::waitForInput() {
                 }
         }
     }
+	return 0xFF; // should never happen
 }
 
 // this isn't great tbh. i wish i could just draw directly to the screen

@@ -27,9 +27,10 @@ private:
 	std::map<byte, bool>     keys;
 
 
-    byte pc, sp, dt, st; // program counter, stack pointer, delay timer, sound timer
+    byte sp, dt, st; // stack pointer, delay timer, sound timer
 
-    uint16_t i;       // 16 bit i register. Normally used to store mem addresses
+    uint16_t pc; // program counter
+    uint16_t i;  // 16 bit i register. Normally used to store mem addresses
 
     uint32_t scale;   // pixel and display scaling
     bool     running;
