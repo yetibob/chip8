@@ -1,12 +1,18 @@
 CC=g++
 
-IDIR =../include
-CFLAGS=-std=c++17 -I$(IDIR)
+IDIR = ../include
+INCLUDES  = -I.
+INCLUDES += -I$(IDIR)
+INCLUDES += -I/usr/include/SDL2 -D_REENTRANT
+CFLAGS=-std=c++17 $(INCLUDES)
+
+SDL=sdl2-config
+SDLFLAGS=--cflags --libs
 
 ODIR=obj
 LDIR =../lib
 
-LIBS=-lm
+LIBS=-lm -lSDL2
 
 _DEPS = chip8.hpp util.hpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))

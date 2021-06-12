@@ -1,5 +1,7 @@
 #include <fstream>
 #include <iostream>
+#include <random>
+#include "SDL.h"
 
 #include "chip8.hpp"
 #include "util.hpp"
@@ -25,6 +27,28 @@ std::array<byte, 80> hexChars {
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 };
 
+std::map<SDL_Scancode, byte> keymap{
+    { SDL_SCANCODE_1, 0x1 },
+    { SDL_SCANCODE_2, 0x2 },
+    { SDL_SCANCODE_3, 0x3 },
+    { SDL_SCANCODE_4, 0xC },
+    { SDL_SCANCODE_Q, 0x4 },
+    { SDL_SCANCODE_W, 0x5 },
+    { SDL_SCANCODE_E, 0x6 },
+    { SDL_SCANCODE_R, 0xD },
+    { SDL_SCANCODE_A, 0x7 },
+    { SDL_SCANCODE_S, 0x8 },
+    { SDL_SCANCODE_D, 0x9 },
+    { SDL_SCANCODE_F, 0xE },
+    { SDL_SCANCODE_Z, 0xA },
+    { SDL_SCANCODE_X, 0x0 },
+    { SDL_SCANCODE_C, 0xB },
+    { SDL_SCANCODE_V, 0xF }
+};
+
+
+std::default_random_engine gen;
+std::uniform_int_distribution<int> dist(0, 255);
 
 Chip8::Chip8(std::string rom): rom(rom), memory{}  {
 	romPaths.push_back(".");
@@ -60,7 +84,7 @@ void Chip8::init() {
 }
 
 void Chip8::reset() {
-    // why do i get an error without this cast?
+    // why do i get a compilation error without this cast?
     pc = static_cast<byte>(0x200);
     sp = 0;
     dt = 0;
@@ -94,9 +118,34 @@ void Chip8::load() {
 	}
 }
 
-void Chip8::run() {
-	while (true) {
+void Chip8::run(int s) {
+    scale = s;
+    running = true;
+
+    SDL_Init(SDL_INIT_VIDEO & SDL_INIT_EVENTS);
+
+    window = SDL_CreateWindow("Chip8", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64*scale, 32*scale, SDL_WINDOW_SHOWN);
+    surface = SDL_GetWindowSurface(window);
+
+    // int st = time.Now()
+
+    SDL_Event event;
+    while (running) {
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+            case SDL_QUIT:
+                running = false;
+                break;
+            case SDL_KEYDOWN:
+                auto item = keymap.find(event.key.keysym.scancode);
+                if (item != keymap.end()) {
+                     keys[item->first] = true;
+                }
+                break;
+            }
+        }
 		tick();
+        draw();
 	}
 }
 
@@ -225,9 +274,8 @@ void Chip8::tick() {
 		pc = addr + static_cast<uint16_t>(v[0]);
         break;
 	case 0xC:
-        // TODO: Random num gen
-		// v[x] = rand.Intn(256) & kk;
-        // break;
+        v[x] = dist(gen);
+        break;
 	case 0xD:
 		bool erased;
 
@@ -308,9 +356,8 @@ void Chip8::tick() {
 			v[x] = dt;
             break;
 		case 0x0A:
-            // TODO:waitForInput
-			//v[x] = c.waitForInput();
-            //break;
+			v[x] = waitForInput();
+            break;
 		case 0x15:
 			dt = v[x];
             break;
@@ -368,4 +415,48 @@ void Chip8::tick() {
 	default:
         std::cout << "UNKNOWN OPCODE 0x%04x"<< op << std::endl;
 	}
+}
+
+byte Chip8::waitForInput() {
+    SDL_Event event;
+
+    while (SDL_WaitEvent(&event))  {
+        switch (event.type) {
+            case SDL_QUIT: // Do I Need this?
+                running = false;
+                return 0xFF;
+            case SDL_KEYDOWN:
+                auto item = keymap.find(event.key.keysym.scancode);
+                if (item != keymap.end()) {
+                    return item->first;
+                }
+        }
+    }
+}
+
+// this isn't great tbh. i wish i could just draw directly to the screen
+// and scale pixel sizes as needed. such is life
+bool i;
+std::array<std::array<SDL_Rect, 64>, 32> rects;
+
+void Chip8::draw() {
+	if (!i) {
+        for (uint32_t y = 0; y < 32; y++) {
+            for (uint32_t x = 0; x < 64; x++) {
+                rects[y][x] = SDL_Rect{static_cast<int>(scale * x), static_cast<int>(scale * y), static_cast<int>(scale), static_cast<int>(scale)};
+            }
+        }
+        i = true;
+    }
+
+    SDL_FillRect(surface, NULL, 0);
+    for (uint32_t y = 0; y < display.size(); y++) {
+        for (uint32_t x; x < display[y].size(); x++) {
+            if (display[y][x] == 0x1) {
+                SDL_FillRect(surface, &rects[y][x], SDL_MapRGB(surface->format, 0, 255, 255));
+            }
+        }
+    }
+
+    SDL_UpdateWindowSurface(window);
 }
