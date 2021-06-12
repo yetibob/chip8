@@ -434,12 +434,12 @@ byte Chip8::waitForInput() {
 // this isn't great tbh. i wish i could just draw directly to the screen
 // and scale pixel sizes as needed. such is life
 bool i;
-std::array<std::array<SDL_Rect, 64>, 32> rects;
+std::array<std::array<SDL_Rect, D_WIDTH>, D_HEIGHT> rects;
 
 void Chip8::draw() {
 	if (!i) {
-        for (int y = 0; y < 32; y++) {
-            for (int x = 0; x < 64; x++) {
+        for (int y = 0; y < D_HEIGHT; y++) {
+            for (int x = 0; x < D_WIDTH; x++) {
                 rects[y][x] = SDL_Rect{scale * x, scale * y, scale, scale};
             }
         }
@@ -448,8 +448,8 @@ void Chip8::draw() {
 
     SDL_FillRect(surface, NULL, 0);
 
-    for (int y = 0; y < 32; y++) {
-        for (int x = 0; x < 64; x++) {
+    for (int y = 0; y < D_HEIGHT; y++) {
+        for (int x = 0; x < D_WIDTH; x++) {
             if (display[y][x] == 0x1) {
                 SDL_FillRect(surface, &rects[y][x], SDL_MapRGB(surface->format, 0, 255, 255));
             }

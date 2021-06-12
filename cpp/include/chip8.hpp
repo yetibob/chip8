@@ -1,9 +1,15 @@
+#ifndef CHIP8_H
+#define CHIP8_H
+
 #include <array>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "SDL.h"
+
+#define D_WIDTH 64
+#define D_HEIGHT 32
 
 typedef unsigned char byte;
 
@@ -21,7 +27,7 @@ private:
     std::array<uint16_t, 16>     stack;
     std::array<byte,     16>     v;
 
-    std::array<std::array<byte, 64>, 32> display; // display, 64x32 (colxrow)
+    std::array<std::array<byte, D_WIDTH>, D_HEIGHT> display; // display, 64x32 (colxrow)
 
 	std::vector<std::string> romPaths;
 	std::map<byte, bool>     keys;
@@ -45,3 +51,5 @@ private:
 
 	byte waitForInput();
 };
+
+#endif
