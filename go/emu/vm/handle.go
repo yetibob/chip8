@@ -6,13 +6,17 @@ import (
 )
 
 func handleOp(c *Chip8, buf []byte) {
-	// Go ahead and advance pc by 2. This will be overridden by any opcodes that exclusive set pc
-	// prior to returning from the function
-	c.pc += 2
-
 	// Chip 8 instruction are technically 2 bytes long however they are read in via 1 byte increments
 	// Therefore we need to combine them into a single 16 bit integer
 	var op uint16 = uint16(buf[0])<<8 | uint16(buf[1])
+
+	// fmt.Println("State:")
+	// fmt.Printf("\tOP: %#04x\n", op)
+	// fmt.Printf("\tPC: %#04x\n", c.pc)
+
+	// Go ahead and advance pc by 2. This will be overridden by any opcodes that exclusive set pc
+	// prior to returning from the function
+	c.pc += 2
 
 	addr := op & 0xFFF
 	x := byte((op & 0xF00) >> 8)
