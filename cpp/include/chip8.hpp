@@ -28,18 +28,17 @@ class Chip8 {
     std::array<uint16_t, 16> stack;
     std::array<byte, 16>     v;
 
-    std::array<std::array<byte, D_WIDTH>, D_HEIGHT>
-        display; // display, 64x32 (colxrow)
+    std::array<std::array<byte, D_WIDTH>, D_HEIGHT> display;
 
     std::vector<std::string> romPaths;
     std::map<byte, bool>     keys;
 
-    byte sp, dt, st; // stack pointer, delay timer, sound timer
+    byte sp, dt, st;
 
-    uint16_t pc; // program counter
-    uint16_t i;  // 16 bit i register. Normally used to store mem addresses
+    uint16_t pc;
+    uint16_t i;
 
-    int  scale; // pixel and display scaling
+    int  scale;
     bool running;
 
     SDL_Window*  window;
