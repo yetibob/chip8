@@ -13,7 +13,7 @@
 #define D_WIDTH 64
 #define D_HEIGHT 32
 
-typedef unsigned char byte;
+typedef uint8_t byte;
 
 class Chip8 {
   public:
@@ -21,7 +21,7 @@ class Chip8 {
 
     void run();
     void reset();
-    void load();
+    bool load();
 
   private:
     std::array<byte, 0x1000> memory;
@@ -31,7 +31,7 @@ class Chip8 {
     std::array<std::array<byte, D_WIDTH>, D_HEIGHT> display;
 
     std::vector<std::string> romPaths;
-    std::map<byte, bool>     keys;
+    std::map<byte, byte>     keys;
 
     byte sp, dt, st;
 
@@ -39,8 +39,9 @@ class Chip8 {
     uint16_t i;
 
     std::string rom;
-    int  scale;
-    bool running;
+    bool        loaded;
+    int         scale;
+    bool        running;
 
     SDL_Window*  window;
     SDL_Surface* surface;
@@ -51,7 +52,7 @@ class Chip8 {
     void handleOp();
     void handleEvents();
 
-    void handleTimers(double delta);
+    void handleTimers(double delta, double rate);
 
     byte waitForInput();
 };

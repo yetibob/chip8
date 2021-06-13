@@ -6,3 +6,6 @@ format:
 
 run:
 	cd src && make run
+
+clean:
+	cd src && make clean

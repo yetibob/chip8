@@ -4,7 +4,7 @@ IDIR = ../include
 INCLUDES  = -I.
 INCLUDES += -I$(IDIR)
 INCLUDES += -I/usr/include/SDL2 -D_REENTRANT
-CFLAGS=-std=c++20 $(INCLUDES)
+CFLAGS=-g -std=c++20 $(INCLUDES)
 
 SDL=sdl2-config
 SDLFLAGS=--cflags --libs
@@ -29,8 +29,7 @@ $(ODIR)/%.o: %.cpp $(DEPS)
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o *~ core $(INCDIR)/*~ 
-	rm -f $(BDIR)/* *~ core $(INCDIR)/*~ 
+	rm -rf obj/* chip8
 
 run:
 	./chip8
