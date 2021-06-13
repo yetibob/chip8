@@ -8,6 +8,8 @@
 
 #include "SDL.h"
 
+#define PROGRAM_MEM_START 0x200
+
 #define D_WIDTH 64
 #define D_HEIGHT 32
 
@@ -15,11 +17,9 @@ typedef unsigned char byte;
 
 class Chip8 {
   public:
-    std::string rom;
+    Chip8(std::string rom, int scale);
 
-    Chip8(std::string rom);
-
-    void run(int s);
+    void run();
     void reset();
     void load();
 
@@ -38,6 +38,7 @@ class Chip8 {
     uint16_t pc;
     uint16_t i;
 
+    std::string rom;
     int  scale;
     bool running;
 
@@ -46,8 +47,11 @@ class Chip8 {
 
     void init();
     void tick();
-    void handleOp();
     void draw();
+    void handleOp();
+    void handleEvents();
+
+    void handleTimers(double delta);
 
     byte waitForInput();
 };

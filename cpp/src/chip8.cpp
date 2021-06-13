@@ -1,3 +1,4 @@
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -6,8 +7,6 @@
 
 #include "chip8.hpp"
 #include "util.hpp"
-
-#define PROGRAM_MEM_START 512
 
 std::array<byte, 80> hexChars{
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -40,7 +39,7 @@ std::map<SDL_Scancode, byte> keymap{
 std::default_random_engine         gen;
 std::uniform_int_distribution<int> dist(0, 255);
 
-Chip8::Chip8(std::string rom) : rom(rom), memory{}, display{} {
+Chip8::Chip8(std::string rom, int scale) : rom{rom}, scale{scale}, memory{}, display{} {
     romPaths.push_back(".");
     romPaths.push_back("./roms");
     romPaths.push_back("${HOME}/.chip8/roms");
@@ -50,7 +49,7 @@ Chip8::Chip8(std::string rom) : rom(rom), memory{}, display{} {
 }
 
 void Chip8::init() {
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < hexChars.size(); i++) {
         memory[i] = hexChars[i];
     }
 
@@ -92,19 +91,16 @@ void Chip8::reset() {
 }
 
 void Chip8::load() {
-    std::ifstream romFile{ rom, std::ifstream::binary };
+    std::ifstream romFile{ rom, std::ifstream::in };
     if (romFile) {
-        romFile.read(reinterpret_cast<char*>(memory.data()) + PROGRAM_MEM_START,
-                     fileLength(romFile));
+        romFile.read(reinterpret_cast<char*>(memory.data()) + PROGRAM_MEM_START, fileLength(romFile));
     }
 }
 
-void Chip8::run(int s) {
-    scale   = s;
+void Chip8::run() {
     running = true;
 
     SDL_Init(SDL_INIT_VIDEO & SDL_INIT_EVENTS);
-
     window  = SDL_CreateWindow("Chip8",
                               SDL_WINDOWPOS_UNDEFINED,
                               SDL_WINDOWPOS_UNDEFINED,
@@ -113,29 +109,65 @@ void Chip8::run(int s) {
                               SDL_WINDOW_SHOWN);
     surface = SDL_GetWindowSurface(window);
 
-    SDL_Event event{};
+    auto prev = std::chrono::steady_clock::now();
+
     while (running) {
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-                case SDL_QUIT:
-                    running = false;
-                    break;
-                case SDL_KEYDOWN:
-                    auto item{ keymap.find(event.key.keysym.scancode) };
-                    if (item != keymap.end()) {
-                        keys[item->first] = true;
-                    }
-                    break;
-            }
-        }
+        auto now = std::chrono::steady_clock::now();
+        std::chrono::duration<double> diff = now - prev;
+        // TODO:INVESTIGATE
+        // Is this getting me the ms between frames???
+        double delta = diff.count() * 1000;
+        prev = now;
+
+        handleEvents();
+        handleTimers(delta);
         tick();
         draw();
     }
 }
 
+void Chip8::handleTimers(double delta) {
+    double rate{1/60};
+    static double cumulative{0};
+
+    // hopefully this will semi accurately drop the timers at a rate of 1/60hz
+    if (cumulative >= rate) {
+        if (dt > 0) {
+            dt--;
+        }
+        if (st > 0) {
+            // this is a bit of an audio hack
+            // just playing the sound as long as needed then dropping st to 0
+            // var dur = time.Second * time.Duration(c.st) / 60
+            // speaker.Play(beep.Take(sr.N(dur), tone))
+            st = 0;
+        }
+        cumulative = 0;
+    } else {
+        cumulative += delta;
+    }
+}
+
+void Chip8::handleEvents() {
+    SDL_Event event{};
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_QUIT:
+                running = false;
+                break;
+            case SDL_KEYDOWN:
+                auto scancode = event.key.keysym.scancode;
+                if (keymap.contains(scancode)) {
+                    keys[keymap[scancode]] = true;
+                    // running = false;
+                }
+                break;
+        }
+    }
+}
+
 void Chip8::tick() {
-    uint16_t op;
-    op = (memory[pc] << 8) | memory[pc + 1];
+    uint16_t op = (memory[pc] << 8) | memory[pc + 1];
 
     // std::cout << "State:\n";
     // std::cout << "\tOP: 0x" << std::hex << op << "\n";
@@ -169,9 +201,8 @@ void Chip8::tick() {
             pc = addr;
             break;
         case 0x2:
-            sp++;
-            stack[sp] = pc;
-            pc        = addr;
+            stack[++sp] = pc;
+            pc          = addr;
             break;
         case 0x3:
             if (v[x] == kk) {
@@ -261,18 +292,18 @@ void Chip8::tick() {
         case 0xD: {
             bool erased{ false };
 
-            for (byte x = 0; x < n; x++) {
-                byte loc_y = v[y] + x;
+            for (byte i2 = 0; i2 < n; i2++) {
+                byte loc_y = v[y] + i2;
                 if (loc_y > 31) {
                     loc_y -= 31;
                 }
 
-                byte sprite = memory[i + x];
+                byte sprite = memory[i + i2];
                 byte oldSprite{};
 
                 // Mash together display into single byte for xoring
-                for (byte y = 0; y < 8; y++) {
-                    byte loc_x = v[x] + y;
+                for (byte j2 = 0; j2 < 8; j2++) {
+                    byte loc_x = v[x] + j2;
                     if (loc_x > 63) {
                         loc_x -= 63;
                     }
@@ -280,7 +311,7 @@ void Chip8::tick() {
                     oldSprite = oldSprite | display[loc_y][loc_x];
                     // do not bit shift left on final op, this causing a pixel
                     // to be lost
-                    if (y < 7) {
+                    if (j2 < 7) {
                         oldSprite = oldSprite << 1;
                     }
                 }
@@ -291,8 +322,8 @@ void Chip8::tick() {
                 // we use j != 255 because we are dealing with a uint
                 // and uints wrap around back to the top when they go below zero
                 // so j >= 0 would always hold true
-                for (byte y = 7; y != 255; y--) {
-                    byte loc_x = v[x] + y;
+                for (byte j2 = 7; j2 != 255; j2--) {
+                    byte loc_x = v[x] + j2;
                     if (loc_x > 63) {
                         loc_x -= 63;
                     }
@@ -300,6 +331,7 @@ void Chip8::tick() {
                     byte tmp = display[loc_y][loc_x];
 
                     display[loc_y][loc_x] = sprite & 0x1;
+
                     // it doesn't matter here that we go one to far with bit
                     // shift sprite because it won't be used after the last call
                     // anyway
@@ -361,7 +393,7 @@ void Chip8::tick() {
                     // https://en.wikipedia.org/wiki/Double_dabble
                     // we can hardcode our limit to 8 since chip8 registers are
                     // 8 bits in length
-                    for (short i = 0; i < 8; i++) {
+                    for (short i2 = 0; i2 < 8; i2++) {
                         // Check if hundreds column is greater than 4. If so,
                         // add 3 to hundreds column
                         if (((bcd & 0xF0000) >> 16) > 4) {
@@ -384,26 +416,26 @@ void Chip8::tick() {
                     }
 
                     memory[i]     = (bcd & 0xF0000) >> 16;
-                    memory[i + 1] = (bcd & 0xF000) >> 12;
-                    memory[i + 2] = (bcd & 0xF00) >> 8;
+                    memory[i + 1] = (bcd & 0xF000)  >> 12;
+                    memory[i + 2] = (bcd & 0xF00)   >> 8;
                     break;
                 }
                 case 0x55:
-                    // TODO: Make sure this stuff is right
-                    for (uint16_t j = 0x0; j <= x; j++) {
+                    for (uint16_t j = 0; j <= x; j++) {
                         memory[i + j] = v[j];
                     }
                     break;
                 case 0x65:
-                    for (uint16_t j = 0x0; j <= x; j++) {
+                    for (uint16_t j = 0; j <= x; j++) {
                         v[j] = memory[i + j];
                     }
                     break;
             }
             break;
         default:
-            std::cout << "UNKNOWN OPCODE 0x" << std::hex << op << std::dec
-                      << std::endl;
+            std::cout << std::hex;
+            std::cout << "UNKNOWN OPCODE 0x" << op << std::endl;
+            std::cout << std::dec;
             running = false;
     }
 }
@@ -417,9 +449,11 @@ byte Chip8::waitForInput() {
                 running = false;
                 return 0xFF;
             case SDL_KEYDOWN:
-                auto item = keymap.find(event.key.keysym.scancode);
-                if (item != keymap.end()) {
-                    return item->first;
+                auto scancode = event.key.keysym.scancode;
+                if (keymap.contains(scancode)) {
+                    keys[keymap[scancode]] = true;
+                    return byte(keys[keymap[scancode]]);
+                    // running = false;
                 }
         }
     }
@@ -428,7 +462,7 @@ byte Chip8::waitForInput() {
 
 // this isn't great tbh. i wish i could just draw directly to the screen
 // and scale pixel sizes as needed. such is life
-bool                                                i;
+bool i;
 std::array<std::array<SDL_Rect, D_WIDTH>, D_HEIGHT> rects;
 
 void Chip8::draw() {
