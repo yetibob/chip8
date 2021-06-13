@@ -28,7 +28,7 @@ std::array<byte, 80> hexChars {
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 };
 
-std::map<SDL_Scancode, byte> keymap{
+std::map<SDL_Scancode, byte> keymap {
     { SDL_SCANCODE_1, 0x1 },
     { SDL_SCANCODE_2, 0x2 },
     { SDL_SCANCODE_3, 0x3 },
@@ -51,7 +51,7 @@ std::map<SDL_Scancode, byte> keymap{
 std::default_random_engine gen;
 std::uniform_int_distribution<int> dist(0, 255);
 
-Chip8::Chip8(std::string rom): rom(rom), memory{}  {
+Chip8::Chip8(std::string rom): rom(rom), memory{}, display{}  {
 	romPaths.push_back(".");
 	romPaths.push_back("./roms");
 	romPaths.push_back("${HOME}/.chip8/roms");
@@ -103,10 +103,8 @@ void Chip8::reset() {
 }
 
 void Chip8::load() {
-	std::ifstream romFile(rom, std::ifstream::binary);
+	std::ifstream romFile{rom, std::ifstream::binary};
 	if (romFile) {
-        // this is ugly...but i want my memory to be a byte[] (unsigned char) so am hacking here just cause....
-        // should i be using this ugly ass cast thing or just a c style (char *) cast?
 		romFile.read(reinterpret_cast<char *>(memory.data())+PROGRAM_MEM_START, fileLength(romFile));
 	}
 }
@@ -117,12 +115,10 @@ void Chip8::run(int s) {
 
     SDL_Init(SDL_INIT_VIDEO & SDL_INIT_EVENTS);
 
-    window = SDL_CreateWindow("Chip8", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64*scale, 32*scale, SDL_WINDOW_SHOWN);
+    window  = SDL_CreateWindow("Chip8", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 64*scale, 32*scale, SDL_WINDOW_SHOWN);
     surface = SDL_GetWindowSurface(window);
 
-    // int st = time.Now()
-
-    SDL_Event event;
+    SDL_Event event{};
     while (running) {
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -130,7 +126,7 @@ void Chip8::run(int s) {
                 running = false;
                 break;
             case SDL_KEYDOWN:
-                auto item = keymap.find(event.key.keysym.scancode);
+                auto item{keymap.find(event.key.keysym.scancode)};
                 if (item != keymap.end()) {
                      keys[item->first] = true;
                 }
@@ -144,7 +140,7 @@ void Chip8::run(int s) {
 
 void Chip8::tick() {
 	uint16_t op;
-    op = static_cast<uint16_t>(memory[pc]) << 8 | static_cast<uint16_t>(memory[pc+1]);
+    op = (memory[pc] << 8) | memory[pc+1];
 
 	// std::cout << "State:\n";
 	// std::cout << "\tOP: 0x" << std::hex << op << "\n";
@@ -153,10 +149,11 @@ void Chip8::tick() {
 	pc += 2;
 
 	uint16_t addr = op & 0xFFF;
-	byte x        = (op & 0xF00) >> 8;
-	byte y        = (op & 0xF0) >> 4;
-	byte kk       = (op & 0xFF);
-	byte n        = (op & 0xF);
+
+	byte x  = (op & 0xF00) >> 8;
+	byte y  = (op & 0xF0) >> 4;
+	byte kk = (op & 0xFF);
+	byte n  = (op & 0xF);
 
 	switch (op >> 12) {
 	case 0x0:
@@ -165,7 +162,6 @@ void Chip8::tick() {
 			for (auto& row : display) {
 				for ( auto& pix :  row) {
 					pix = 0x0;
-					// c.display[row][col] = 0x0
 				}
 			}
             break;
@@ -218,13 +214,12 @@ void Chip8::tick() {
 			v[x] ^= v[y];
             break;
 		case 0x4: {
-			uint16_t tmp = static_cast<uint16_t>(v[x]) + static_cast<uint16_t>(v[y]);
+			uint16_t tmp = v[x] + v[y];
 			if (tmp > 255) {
 				v[0xF] = 1;
 			} else {
 				v[0xF] = 0;
 			}
-			// v[x] = byte(tmp)
 			v[x] = tmp;
             break;
                   }
@@ -238,7 +233,7 @@ void Chip8::tick() {
             break;
 		case 0x6:
 			v[0xF] = v[x] & 0x1;
-			v[x] = v[x] >> 1;
+			v[x] /= 2;
             break;
 		case 0x7:
 			if (v[y] > v[x]) {
@@ -262,38 +257,34 @@ void Chip8::tick() {
 		i = addr;
         break;
 	case 0xB:
-		pc = addr + static_cast<uint16_t>(v[0]);
+		pc = addr + v[0];
         break;
 	case 0xC: {
-		int rand = dist(gen);
-		std::cout << "Rand: " << rand << std::endl;
-        v[x] = rand;
+        v[x] = dist(gen);
         break;
-			  }
-	case 0xD:
-		bool erased;
+    }
+	case 0xD: {
+		bool erased{false};
 
-		byte x;
-		for (; x < n; x++) {
+		for (byte x = 0; x < n; x++) {
 			byte loc_y = v[y] + x;
 			if (loc_y > 31) {
 				loc_y -= 31;
 			}
 
-			byte sprite = memory[i+static_cast<uint16_t>(x)];
-			byte oldSprite;
+			byte sprite = memory[i+x];
+			byte oldSprite{};
 
-			byte j;
 			// Mash together display into single byte for xoring
-			for (; j < 8; j++) {
-				byte loc_x = v[x] + j;
+			for (byte y; y < 8; y++) {
+				byte loc_x = v[x] + y;
 				if (loc_x > 63) {
 					loc_x -= 63;
 				}
 
 				oldSprite = oldSprite | display[loc_y][loc_x];
 				// do not bit shift left on final op, this causing a pixel to be lost
-				if (j < 7) {
+				if (y < 7) {
 					oldSprite = oldSprite << 1;
 				}
 			}
@@ -304,8 +295,8 @@ void Chip8::tick() {
 			// we use j != 255 because we are dealing with a uint
 			// and uints wrap around back to the top when they go below zero
 			// so j >= 0 would always hold true
-			for (j = 7; j != 255; j--) {
-				byte loc_x = v[x] + j;
+			for (byte y = 7; y != 255; y--) {
+				byte loc_x = v[x] + y;
 				if (loc_x > 63) {
 					loc_x -= 63;
 				}
@@ -327,6 +318,7 @@ void Chip8::tick() {
 			v[0xF] = 0;
 		}
         break;
+    }
 	case 0xE:
 		switch (op & 0xFF) {
 		case 0x9E:
@@ -359,10 +351,10 @@ void Chip8::tick() {
 			st = v[x];
             break;
 		case 0x1E:
-			i += static_cast<uint16_t>(v[x]);
+			i += v[x];
             break;
 		case 0x29:
-			i = static_cast<uint16_t>(v[x] * 5);
+			i = v[x] * 5;
             break;
 		case 0x33: {
 			uint32_t bcd = v[x];
