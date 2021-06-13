@@ -271,7 +271,7 @@ void Chip8::tick() {
                 byte oldSprite{};
 
                 // Mash together display into single byte for xoring
-                for (byte y; y < 8; y++) {
+                for (byte y = 0; y < 8; y++) {
                     byte loc_x = v[x] + y;
                     if (loc_x > 63) {
                         loc_x -= 63;
