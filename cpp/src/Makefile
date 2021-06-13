@@ -4,7 +4,7 @@ IDIR = ../include
 INCLUDES  = -I.
 INCLUDES += -I$(IDIR)
 INCLUDES += -I/usr/include/SDL2 -D_REENTRANT
-CFLAGS=-std=c++17 $(INCLUDES)
+CFLAGS=-std=c++20 $(INCLUDES)
 
 SDL=sdl2-config
 SDLFLAGS=--cflags --libs
