@@ -193,13 +193,10 @@ func (c *Chip8) Reset() error {
 	}
 
 	if !c.initialized {
-		// TODO: Load fonts
-
 		for i := 0; i < len(hexChars); i++ {
 			c.mem[i] = hexChars[i]
 		}
 
-		// Init keyboard
 		c.keys = map[byte]bool{
 			0x1: false,
 			0x2: false,
