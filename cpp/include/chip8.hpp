@@ -39,9 +39,11 @@ class Chip8 {
     uint16_t i;
 
     std::string rom;
+
     bool        loaded;
-    int         scale;
     bool        running;
+
+    int         scale;
 
     SDL_Window*  window;
     SDL_Surface* surface;
