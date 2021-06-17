@@ -293,6 +293,7 @@ void Chip8::tick() {
                     v[x] <<= 1;
                     break;
             }
+            break;
         case 0x9:
             if (v[x] != v[y]) {
                 pc += 2;
