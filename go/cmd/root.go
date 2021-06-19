@@ -1,32 +1,25 @@
 package cmd
 
 import (
-	"io/ioutil"
-
 	"github.com/spf13/cobra"
-	"github.com/yetibob/chip8/regen/op"
+	"github.com/yetibob/chip8/vm"
 )
 
 var (
 	// Used for flags.
 	rootCmd = &cobra.Command{
-		Use:   "regen",
-		Short: "regen runs through a chip8 program and spits out assembly ",
+		Use:   "chip8",
+		Short: "runs chip8 programs by emulating chip8 runtime",
 		Run: func(cmd *cobra.Command, args []string) {
-			// read rom into buffer
 			romFile, err := cmd.PersistentFlags().GetString("rom")
 			panicErr(err)
 
-			rom, err := ioutil.ReadFile(romFile)
+			var vm vm.Chip8
+			err = vm.Load(romFile)
 			panicErr(err)
 
-			pc := 0
-			for {
-				if pc >= len(rom) {
-					break
-				}
-				pc = op.HandleOp(rom[pc:pc+2], pc)
-			}
+			err = vm.Start(10)
+			panicErr(err)
 		},
 	}
 )
@@ -37,7 +30,7 @@ func panicErr(err error) {
 	}
 }
 
-// Execute t
+// Execute
 func Execute() error {
 	return rootCmd.Execute()
 }

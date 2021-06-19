@@ -1,6 +1,6 @@
 GOCMD=go
 GOBUILD=$(GOCMD) build
-ROM=../../roms/INVADERS
+ROM=../roms/INVADERS
 BINARY_NAME=chip8
 
 build:

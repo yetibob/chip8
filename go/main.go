@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/yetibob/chip8/regen/cmd"
+import "github.com/yetibob/chip8/cmd"
 
 func main() {
 	cmd.Execute()
