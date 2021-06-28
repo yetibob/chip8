@@ -1,18 +1,20 @@
 ## Emu
+
+### UX
+[ ] ROM Selector
+[ ] Color Selector
+[ ] Start/Stop/Reset
+[ ] Window Resizing
+[ ] Key mapping
+[ ] FPS Counter
+
 ### Debugging
-[ ] Pause
+[ ] Pause/Play
 [ ] Step
 [ ] Step Back
 [ ] Run
 [ ] Memory Inspector
 [ ] Display Inspector
-
-### Runtime Functionality
-[ ] Window Resizing
-[ ] Color selection
-[ ] Key mapping
-[ ] Program loader
-[ ] FPS Counter
 
 ## Regen
 [ ] Update to print out instruction values along with instruction name/desc
