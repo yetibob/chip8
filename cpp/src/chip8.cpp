@@ -4,7 +4,7 @@
 #include <iostream>
 #include <random>
 
-#include "SDL.h"
+#include <SDL2/SDL.h>
 
 #include "chip8.hpp"
 #include "util.hpp"
@@ -144,6 +144,7 @@ void Chip8::run() {
         tick();
         draw();
     }
+    SDL_Quit();
 }
 
 void Chip8::handleTimers(double delta, double rate) {

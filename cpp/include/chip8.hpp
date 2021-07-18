@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "SDL.h"
+#include <SDL2/SDL.h>
 
 #define PROGRAM_MEM_START 0x200
 

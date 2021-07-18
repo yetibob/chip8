@@ -3,8 +3,7 @@ CC=g++
 IDIR = ../include
 INCLUDES  = -I.
 INCLUDES += -I$(IDIR)
-INCLUDES += -I/usr/include/SDL2 -D_REENTRANT
-CFLAGS=-g -std=c++20 $(INCLUDES)
+CFLAGS=-g -std=c++20 -D_REENTRANT $(INCLUDES)
 
 SDL=sdl2-config
 SDLFLAGS=--cflags --libs
